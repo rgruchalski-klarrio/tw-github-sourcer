@@ -9,8 +9,10 @@ const (
 )
 
 var (
-	KafkaBroker            = "127.0.0.1:9092"
-	KafkaProducerTopicName = "rollups"
+	KafkaBroker = "127.0.0.1:9092"
+
+	KafkaConsumerGroupID  = "tw-github-server-consumer"
+	KafkaRollupsTopicName = "rollups"
 
 	GithubEventsPerPage = MaximumGithubEventsPerPage
 

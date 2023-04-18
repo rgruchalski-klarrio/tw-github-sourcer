@@ -36,9 +36,9 @@ func initFlags() {
 		"broker",
 		defaults.KafkaBroker,
 		"Kafka broker address")
-	flag.StringVar(&defaults.KafkaProducerTopicName,
+	flag.StringVar(&defaults.KafkaRollupsTopicName,
 		"producer-topic",
-		defaults.KafkaProducerTopicName,
+		defaults.KafkaRollupsTopicName,
 		"Topic name to produce messages to")
 	flag.IntVar(&defaults.GithubEventsPerPage,
 		"events-per-page",
@@ -63,7 +63,7 @@ func main() {
 	// Construct a Kafka producer:
 	producer := kafka.NewWriter(kafka.WriterConfig{
 		Brokers: []string{defaults.KafkaBroker},
-		Topic:   defaults.KafkaProducerTopicName,
+		Topic:   defaults.KafkaRollupsTopicName,
 		Dialer: &kafka.Dialer{
 			Timeout:   10 * time.Second,
 			DualStack: true,
@@ -145,7 +145,7 @@ loop:
 			// Do this once:
 			defaults.StartupInfoReported = true
 			fmt.Println("Processing a maximum of", defaults.GithubEventsPerPage, "GitHub events every", queryIntervalSecs,
-				"seconds.\nEvents will be produced to the Kafka topic", defaults.KafkaProducerTopicName, "at", defaults.KafkaBroker, "\n...")
+				"seconds.\nEvents will be produced to the Kafka topic", defaults.KafkaRollupsTopicName, "at", defaults.KafkaBroker, "\n...")
 		}
 
 		for _, ev := range events {
