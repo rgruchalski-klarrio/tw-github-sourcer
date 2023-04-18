@@ -11,13 +11,24 @@ This is an example serving as a background to the concepts outlined in the probl
 - `kafka-clean`: stop running Kafka infrastructure containers, remove them, and clean up volumes
 - `kafka-up`: start Kafka infrastructure with Docker Compose
 
+- `programs-clean`: stop running producer and consumer program containers, and remove them
+- `programs-up`: start producer and consumer containers with Docker Compose
+
 - `kafka-consumer-rollups`: start Kafka console consumer for the `rollups` topic
 - `kafka-topics-create`: create all topics required for this work-together exercise
 - `kafka-topics-describe`: describe existing Kafka topics
 - `kafka-topics-list`: list existing Kafka topics
 
-- `run-consumer`: runs the HTTP server consumer command
+- `run-consumer-1`: runs the HTTP server consumer command with port 8081
+- `run-consumer-2`: runs the HTTP server consumer command with port 8082
 - `run-producer`: runs the producer command
+
+Build targets:
+
+- `build.consumer`: builds the consumer
+- `build.producer`: builds the producer
+- `docker.build.consumer`: builds the consumer Docker image
+- `docker.build.producer`: builds the producer Docker image
 
 ## dependencies
 
@@ -40,8 +51,15 @@ make kafka-up
 make kafka-topics-create
 ```
 
-3. In another terminal window: Run the main program. Assumes that you have the Go programming language configured correctly.
+3. Build Docker images:
 
 ```sh
-make run-producer
+make docker.build.consumer
+make docker.build.producer
+```
+
+4. Run programs:
+
+```sh
+make programs-up
 ```

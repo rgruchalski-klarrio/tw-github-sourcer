@@ -80,6 +80,8 @@ func main() {
 	initFlags()
 	ctx := handleExit()
 
+	fmt.Println("Starting a consumer with group", defaults.KafkaConsumerGroupID)
+
 	// Construct a Kafka consumer:
 	consumer := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{defaults.KafkaBroker},
