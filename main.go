@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,17 +14,19 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-const kafkaTopicName = "github-data"
+var (
+	kafkaBroker                = "127.0.0.1:9092"
+	kafkaProducerTopicName     = "github-data"
+	maximumGithubEventsPerPage = 100
+	githubEventsPerPage        = maximumGithubEventsPerPage
 
-func main() {
+	startupInfoReported = false
+)
 
+func handleExit() context.Context {
 	ctx, cancelFunc := context.WithCancel(context.Background())
-
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	client := github.NewClient(nil)
-
 	// Asynchronous wait for the interrupt handler.
 	// When processed, the context will be cancelled and it will signal
 	// that we are done waiting for next event batch.
@@ -31,28 +34,86 @@ func main() {
 		<-c
 		cancelFunc()
 	}()
+	return ctx
+}
 
-	// setup Kafka producer:
-	dialer := &kafka.Dialer{
-		Timeout:   10 * time.Second,
-		DualStack: true,
+func initFlags() {
+	flag.StringVar(&kafkaBroker,
+		"broker",
+		kafkaBroker,
+		"Kafka broker address")
+	flag.StringVar(&kafkaProducerTopicName,
+		"producer-topic",
+		kafkaProducerTopicName,
+		"Topic name to produce messages to")
+	flag.IntVar(&githubEventsPerPage,
+		"events-per-page",
+		githubEventsPerPage,
+		"Number of events per page. Maximum 100.")
+	flag.Parse()
+
+	// Validate input:
+	if githubEventsPerPage > maximumGithubEventsPerPage {
+		githubEventsPerPage = maximumGithubEventsPerPage
 	}
+}
 
+func main() {
+
+	initFlags()
+	ctx := handleExit()
+
+	// Construct a GitHub client:
+	client := github.NewClient(nil)
+
+	// Construct a Kafka producer:
 	producer := kafka.NewWriter(kafka.WriterConfig{
-		Brokers:      []string{"127.0.0.1:9092"},
-		Topic:        kafkaTopicName,
-		Dialer:       dialer,
+		Brokers: []string{kafkaBroker},
+		Topic:   kafkaProducerTopicName,
+		Dialer: &kafka.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true,
+		},
+		BatchSize:    githubEventsPerPage,
 		RequiredAcks: -1, // require confirmation from all replicas
-		BatchSize:    1,
 		MaxAttempts:  3,
 	})
 
 loop:
 	for {
 
-		events, response, err := client.Activity.ListEvents(context.TODO(), &github.ListOptions{
-			PerPage: 100,
+		events, response, err := client.Activity.ListEvents(ctx, &github.ListOptions{
+			PerPage: githubEventsPerPage,
 		})
+
+		// Handle error, if any
+		if err != nil {
+			if _, ok := err.(*github.RateLimitError); ok {
+				fmt.Println("ERROR: rate limit")
+				select {
+				case <-time.After(time.Second):
+					continue loop
+				case <-ctx.Done():
+					break loop
+				}
+			} else if _, ok := err.(*github.AbuseRateLimitError); ok {
+				fmt.Println("ERROR: secondary rate limit")
+				select {
+				case <-time.After(time.Second):
+					continue loop
+				case <-ctx.Done():
+					break loop
+				}
+			} else {
+				fmt.Println("ERROR: github API error", err.Error())
+				select {
+				case <-time.After(time.Second):
+					continue loop
+				case <-ctx.Done():
+					break loop
+				}
+			}
+		}
 
 		// GitHub API is rate limited. The good thing is, the response tells us
 		// what the limit is. We can calculate how often we should query the API:
@@ -71,33 +132,9 @@ loop:
 			}
 		}
 
-		// Handle error, if any
-		if err != nil {
-			if _, ok := err.(*github.RateLimitError); ok {
-				fmt.Println("ERROR: rate limit")
-				select {
-				case <-time.After(time.Second * time.Duration(queryIntervalSecs)):
-					continue loop
-				case <-ctx.Done():
-					break loop
-				}
-			} else if _, ok := err.(*github.AbuseRateLimitError); ok {
-				fmt.Println("ERROR: secondary rate limit")
-				select {
-				case <-time.After(time.Second * time.Duration(queryIntervalSecs)):
-					continue loop
-				case <-ctx.Done():
-					break loop
-				}
-			} else {
-				fmt.Println("ERROR: github API error", err.Error())
-				select {
-				case <-time.After(time.Second * time.Duration(queryIntervalSecs)):
-					continue loop
-				case <-ctx.Done():
-					break loop
-				}
-			}
+		if !startupInfoReported {
+			fmt.Println("Processing a maximum of", githubEventsPerPage, "GitHub events every", queryIntervalSecs, "seconds.\nEvents will be produced to the Kafka topic", kafkaProducerTopicName, "at", kafkaBroker, "\n...")
+			startupInfoReported = true
 		}
 
 		kafkaMessages := []kafka.Message{}
@@ -120,8 +157,16 @@ loop:
 			if writerErr != nil {
 				fmt.Println("ERROR: Kafka producer failed write", writerErr.Error())
 			}
-			fmt.Println("Kafka statistics", producer.Stats())
+			producerStats := producer.Stats()
+			rawStats, marshalErr := json.Marshal(&producerStats)
+			if marshalErr == nil {
+				fmt.Println("Kafka statistics", string(rawStats))
+			} else {
+				fmt.Println("ERROR: Kafka stats could not be serialized", marshalErr.Error())
+			}
 		}
+
+		fmt.Println("Next iteration in", queryIntervalSecs, "seconds...")
 
 		select {
 		case <-time.After(time.Second * time.Duration(queryIntervalSecs)):
