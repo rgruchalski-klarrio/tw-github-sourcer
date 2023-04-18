@@ -25,6 +25,9 @@ var (
 
 	slidingWindowDuration = time.Minute * time.Duration(5)
 	programStartedAt      = time.Now()
+
+	prometheusNamespace = "tw"
+	prometheusSubsystem = "github"
 )
 
 func handleExit() context.Context {
@@ -166,8 +169,8 @@ loop:
 			if _, ok := summaries[*ev.Type]; !ok {
 
 				summary := prometheus.NewSummary(prometheus.SummaryOpts{
-					Namespace: "tw",
-					Subsystem: "github",
+					Namespace: prometheusNamespace,
+					Subsystem: prometheusSubsystem,
 					Name:      *ev.Type,
 					MaxAge:    slidingWindowDuration,
 				})
