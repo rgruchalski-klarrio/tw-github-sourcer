@@ -18,4 +18,6 @@ var (
 
 	SlidingWindowDuration = time.Minute * time.Duration(5)
 	ProgramStartedAt      = time.Now()
+
+	ServerBindHostPort = ":8080"
 )
