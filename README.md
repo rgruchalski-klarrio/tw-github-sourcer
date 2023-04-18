@@ -11,7 +11,7 @@ This is an example serving as a background to the concepts outlined in the probl
 - `kafka-clean`: stop running Kafka infrastructure containers, remove them, and clean up volumes
 - `kafka-up`: start Kafka infrastructure with Docker Compose
 
-- `kafka-consumer-github-data`: start Kafka console consumer for the `github-data` topic
+- `kafka-consumer-rollups`: start Kafka console consumer for the `rollups` topic
 - `kafka-topics-create`: create all topics required for this work-together exercise
 - `kafka-topics-describe`: describe existing Kafka topics
 - `kafka-topics-list`: list existing Kafka topics
