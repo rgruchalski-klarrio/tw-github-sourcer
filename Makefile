@@ -26,3 +26,10 @@ kafka-topics-describe:
 
 kafka-topics-list:
 	docker exec -ti ${CURRENT_DIR_NAME}-kafka-1 /bin/bash -c 'kafka-topics.sh --bootstrap-server=kafka:9092 --list'
+
+.PHONY: run-consumer run-producer
+run-consumer:
+	go run cmd/consumer/command.go
+
+run-producer:
+	go run cmd/producer/main.go

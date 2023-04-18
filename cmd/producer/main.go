@@ -10,24 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Klarrio/tw-github-sourcer/defaults"
+	"github.com/Klarrio/tw-github-sourcer/types"
 	"github.com/google/go-github/v51/github"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
-)
-
-var (
-	kafkaBroker                = "127.0.0.1:9092"
-	kafkaProducerTopicName     = "rollups"
-	maximumGithubEventsPerPage = 100
-	githubEventsPerPage        = maximumGithubEventsPerPage
-
-	startupInfoReported = false
-
-	slidingWindowDuration = time.Minute * time.Duration(5)
-	programStartedAt      = time.Now()
-
-	prometheusNamespace = "tw"
-	prometheusSubsystem = "github"
 )
 
 func handleExit() context.Context {
@@ -45,23 +32,23 @@ func handleExit() context.Context {
 }
 
 func initFlags() {
-	flag.StringVar(&kafkaBroker,
+	flag.StringVar(&defaults.KafkaBroker,
 		"broker",
-		kafkaBroker,
+		defaults.KafkaBroker,
 		"Kafka broker address")
-	flag.StringVar(&kafkaProducerTopicName,
+	flag.StringVar(&defaults.KafkaProducerTopicName,
 		"producer-topic",
-		kafkaProducerTopicName,
+		defaults.KafkaProducerTopicName,
 		"Topic name to produce messages to")
-	flag.IntVar(&githubEventsPerPage,
+	flag.IntVar(&defaults.GithubEventsPerPage,
 		"events-per-page",
-		githubEventsPerPage,
+		defaults.GithubEventsPerPage,
 		"Number of events per page. Maximum 100.")
 	flag.Parse()
 
 	// Validate input:
-	if githubEventsPerPage > maximumGithubEventsPerPage {
-		githubEventsPerPage = maximumGithubEventsPerPage
+	if defaults.GithubEventsPerPage > defaults.MaximumGithubEventsPerPage {
+		defaults.GithubEventsPerPage = defaults.MaximumGithubEventsPerPage
 	}
 }
 
@@ -75,8 +62,8 @@ func main() {
 
 	// Construct a Kafka producer:
 	producer := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{kafkaBroker},
-		Topic:   kafkaProducerTopicName,
+		Brokers: []string{defaults.KafkaBroker},
+		Topic:   defaults.KafkaProducerTopicName,
 		Dialer: &kafka.Dialer{
 			Timeout:   10 * time.Second,
 			DualStack: true,
@@ -94,7 +81,7 @@ loop:
 
 		// Query GitHub for the list of events:
 		events, response, err := client.Activity.ListEvents(ctx, &github.ListOptions{
-			PerPage: githubEventsPerPage,
+			PerPage: defaults.GithubEventsPerPage,
 		})
 
 		// Handle error, if any:
@@ -154,11 +141,11 @@ loop:
 
 		}
 
-		if !startupInfoReported {
+		if !defaults.StartupInfoReported {
 			// Do this once:
-			startupInfoReported = true
-			fmt.Println("Processing a maximum of", githubEventsPerPage, "GitHub events every", queryIntervalSecs,
-				"seconds.\nEvents will be produced to the Kafka topic", kafkaProducerTopicName, "at", kafkaBroker, "\n...")
+			defaults.StartupInfoReported = true
+			fmt.Println("Processing a maximum of", defaults.GithubEventsPerPage, "GitHub events every", queryIntervalSecs,
+				"seconds.\nEvents will be produced to the Kafka topic", defaults.KafkaProducerTopicName, "at", defaults.KafkaBroker, "\n...")
 		}
 
 		for _, ev := range events {
@@ -169,10 +156,10 @@ loop:
 			if _, ok := summaries[*ev.Type]; !ok {
 
 				summary := prometheus.NewSummary(prometheus.SummaryOpts{
-					Namespace: prometheusNamespace,
-					Subsystem: prometheusSubsystem,
+					Namespace: defaults.PrometheusNamespace,
+					Subsystem: defaults.PrometheusSubsystem,
 					Name:      *ev.Type,
-					MaxAge:    slidingWindowDuration,
+					MaxAge:    defaults.SlidingWindowDuration,
 				})
 				if err := registry.Register(summary); err != nil {
 					fmt.Println("ERROR: Failed registering a summary for event type", *ev.Type, "reason", err.Error())
@@ -190,7 +177,7 @@ loop:
 		}
 
 		// Once we have iterated over individual events, collect metrics and put them in the rollups object:
-		kafkaPayload := newRollups(programStartedAt, slidingWindowDuration)
+		kafkaPayload := types.NewRollups()
 		// Gather all metrics and put them in the Kafka payload:
 		metrics, gatherErr := registry.Gather()
 		if gatherErr != nil {
