@@ -16,6 +16,9 @@ This is an example serving as a background to the concepts outlined in the probl
 - `kafka-topics-describe`: describe existing Kafka topics
 - `kafka-topics-list`: list existing Kafka topics
 
+- `run-consumer`: runs the empty consumer command
+- `run-producer`: runs the producer command
+
 ## dependencies
 
 - Docker
@@ -40,5 +43,5 @@ make kafka-topics-create
 3. In another terminal window: Run the main program. Assumes that you have the Go programming language configured correctly.
 
 ```sh
-go run .
+make run-producer
 ```
