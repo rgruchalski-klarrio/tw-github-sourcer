@@ -48,6 +48,19 @@ services:
     networks:
     - tw-github-sourcer
 
+  envoy:
+    image: envoyproxy/envoy:v1.26.0
+    restart: unless-stopped
+    command: /usr/local/bin/envoy -c /etc/envoy/load-balancer.yaml -l debug
+    ports:
+    - 3000:3000
+    volumes:
+    - type: bind
+      source: ./etc/envoy
+      target: /etc/envoy
+    networks:
+    - tw-github-sourcer
+
   consumer-1:
     image: localhost/tw-github-sourcer-consumer:latest
     restart: unless-stopped

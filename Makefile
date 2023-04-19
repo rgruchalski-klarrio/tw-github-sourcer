@@ -16,7 +16,7 @@ docker.build.consumer:
 docker.build.producer:
 	docker build --build-arg GOOS=$(GOOS) --build-arg GOARCH=$(GOARCH) --build-arg BUILD_TYPE=producer -t localhost/$(CURRENT_DIR_NAME)-producer:latest -f Dockerfile .
 
-.PHONY: kafka-clean kafka-up programs-clean programs-up
+.PHONY: kafka-clean kafka-up lb-clean lb-up programs-clean programs-up
 kafka-clean:
 	docker compose -f ${CURRENT_DIR}/compose.yaml stop kafka zookeeper
 	docker compose -f ${CURRENT_DIR}/compose.yaml rm kafka zookeeper
@@ -24,6 +24,13 @@ kafka-clean:
 
 kafka-up:
 	docker compose -f ${CURRENT_DIR}/compose.yaml up kafka zookeeper
+
+lb-clean:
+	docker compose -f ${CURRENT_DIR}/compose.yaml stop envoy
+	docker compose -f ${CURRENT_DIR}/compose.yaml rm envoy
+
+lb-up:
+	docker compose -f ${CURRENT_DIR}/compose.yaml up envoy
 
 programs-clean:
 	docker compose -f ${CURRENT_DIR}/compose.yaml stop producer consumer-1 consumer-2

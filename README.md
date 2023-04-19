@@ -11,6 +11,9 @@ This is an example serving as a background to the concepts outlined in the probl
 - `kafka-clean`: stop running Kafka infrastructure containers, remove them, and clean up volumes
 - `kafka-up`: start Kafka infrastructure with Docker Compose
 
+- `lb-clean`: stop running Envoy load balancer container, remove it
+- `lb-up`: start Envoy load balancer with Docker Compose
+
 - `programs-clean`: stop running producer and consumer program containers, and remove them
 - `programs-up`: start producer and consumer containers with Docker Compose
 
